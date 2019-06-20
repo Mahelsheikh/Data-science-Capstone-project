@@ -4,29 +4,52 @@ ui<-dashboardPage(
         dashboardHeader(title ="Single word prediction application"),
         dashboardSidebar(
                 sidebarMenu(
-                        menuItem("Application",tabName = "application",icon = icon("keyboard")),
-                        menuItem("Documentation",tabName = "documentation",icon = icon("book"))
+                        menuItem("Application",tabName = "application",
+                                 icon = icon("keyboard")),
+                        menuItem("Documentation",tabName = "documentation",
+                                 icon = icon("book"))
                 )
         ),
         dashboardBody(
                 tabItems(tabItem(tabName = "application",
                                  fluidPage(
-                                         box(title = "Sentence entry",textInput(inputId = "Text",label = "Enter a sentence",
-                                         ),solidHeader = TRUE,background = "blue"),
-                                         box(title = "Predicted word",h3(uiOutput("suggestion")),solidHeader = TRUE,background = "green"),
-                                         infoBox("Instructions", value = "Type in the sentence to get the prediction", subtitle = NULL,
-                                                 icon = shiny::icon("info"), color = "orange", width = 6,
+                                         box(title = "Sentence entry",
+                                             textInput(inputId = "Text",
+                                                       label = "Enter a sentence",
+                                         ),
+                                         solidHeader = TRUE,background = "blue"),
+                                         box(title = "Predicted word",
+                                             h3(uiOutput("suggestion")),
+                                             solidHeader = TRUE,
+                                             background = "green"),
+                                         infoBox("Instructions", 
+                                                 value = "Type in the sentence to get the prediction", 
+                                                 subtitle = NULL,
+                                                 icon = shiny::icon("info"), 
+                                                 color = "orange", width = 6,
                                                  href = NULL, fill = TRUE))
                 ),
-                tabItem(tabName = "documentation",h3("The following links has detailed steps to produce this data product:",br(),
-                                                     "Exploratory analysis of text file:",br(),
-                                                     a("Milestone report part 1",href="http://rpubs.com/mah_elsheikh/499028"),br(),
-                                                     "Processing the data and Creating algorithm:",br(),
-                                                     a("Milestone report part 2",href="http://rpubs.com/mah_elsheikh/506474"),br(),
+                tabItem(tabName = "documentation",h3(
+                        "The following links has detailed steps to produce this data product:",
+                        br(),
+                                                     "Exploratory analysis of text file:",
+                        br(),
+                                                     a("Milestone report part 1",
+                                                       href="http://rpubs.com/mah_elsheikh/499028"),
+                        br(),
+                                                     "Processing the data and Creating algorithm:",
+                        br(),
+                                                     a("Milestone report part 2",
+                                                       href="http://rpubs.com/mah_elsheikh/506474"),
+                        br(),
                                                      "Data product code:",br(),
-                                                     a("Milestone report part 2",href="http://rpubs.com/mah_elsheikh/506208"),br(),
-                                                     "Data product presentation:",br(),
-                                                     a("Project presentation",href="http://rpubs.com/mah_elsheikh/506553"))
+                                                     a("Milestone report part 2",
+                                                       href="http://rpubs.com/mah_elsheikh/506208"),
+                        br(),
+                                                     "Data product code:",
+                        br(),
+                                                     a("Data product presentation",
+                                                       href="http://rpubs.com/mah_elsheikh/506553"))
                 )
                 )
                 
@@ -41,7 +64,9 @@ server<-(function(input,output){
                 if (ngram_length == 1) {
                         preword<-x
                 }else{
-                        preword<-paste(strsplit(x,split = " ")[[1]][(ngram_length-n):ngram_length],collapse = " ")
+                        preword<-paste(strsplit(x,
+                                                split = " ")[[1]][(ngram_length-n):ngram_length],
+                                       collapse = " ")
                 }
                 return(preword)
         }
@@ -67,20 +92,24 @@ server<-(function(input,output){
                         ## Testing if the preword exist in the quadgram matrix
                         d<-pre %in% inwordsquad
                         if (d == TRUE) {
-                                ## Getting word suggestion from quad gram matrix in case the preword exists in the quadgram
+                                ## Getting word suggestion from quad gram matrix 
+                                ## in case the preword exists in the quadgram
                                 wordrange<-quadmatrix[(rownames(quadmatrix) == pre) == TRUE,]
                         }else{
-                                ## If no words are found shortening the preword by one word
+                                ## If no words are found shortening the preword
+                                ## by one word
                                 pre<-preword(pre,2)
                         }
                 }
                 
                 if (exists("wordrange") == FALSE){
-                        ## Creating logical vectors for each matrix if the preword found in each matrix or not  
+                        ## Creating logical vectors for each matrix if the 
+                        ## preword found in each matrix or not  
                         x<-pre %in% inwordspre1
                         y<-pre %in% inwordspre2
                         z<-pre %in% inwordspre3
-                        ## Getting the row from the matrix that the preword found in which contains the probabilities
+                        ## Getting the row from the matrix that the preword 
+                        ## found in which contains the probabilities
                         if (x == TRUE) {
                                 wordrange<-probmatrix1[(rownames(probmatrix1) == pre) == TRUE,]
                         }
@@ -92,17 +121,20 @@ server<-(function(input,output){
                         }
                         
                         if (x == FALSE & y == FALSE & z == FALSE){
-                                ## If no words are found shortening the preword by two words
+                                ## If no words are found shortening the 
+                                ## preword by two words
                                 pre<-suppressWarnings(preword(pre,1))
                         }
                 }
                 
                 if (exists("wordrange") == FALSE){
-                        ## Creating logical vectors for each matrix if the preword found in each matrix or not 
+                        ## Creating logical vectors for each matrix if 
+                        ## the preword found in each matrix or not 
                         x2<-pre %in% inwordspre1
                         y2<-pre %in% inwordspre2
                         z2<-pre %in% inwordspre3
-                        ## Getting the row from the matrix that the preword found in which contains the probabilities
+                        ## Getting the row from the matrix that 
+                        ## the preword found in which contains the probabilities
                         if (x2 == TRUE) {
                                 wordrange<-probmatrix1[(rownames(probmatrix1) == pre) == TRUE,]
                         }
@@ -118,7 +150,8 @@ server<-(function(input,output){
                         wordrange<-sort(wordrange,decreasing = TRUE)
                         result<-names(wordrange[1])
                 }else{
-                        ## if no result was found. The algorithm will return the top three words in the English language
+                        ## if no result was found. The algorithm will return 
+                        ## the top three words in the English language
                         result<-c("the")
                 }
                 return(result)
@@ -144,7 +177,8 @@ server<-(function(input,output){
                         ## Testing if the preword exist in the quadgram matrix
                         d<-pre %in% inwordsquad
                         if (d == TRUE) {
-                                ## Getting word suggestion from quad gram matrix in case the preword exists in the quadgram
+                                ## Getting word suggestion from quad gram 
+                                ## matrix in case the preword exists in the quadgram
                                 wordrange<-quadmatrix[(rownames(quadmatrix) == pre) == TRUE,]
                         }else{
                                 ## If no words are found shortening the preword by one word
@@ -153,11 +187,13 @@ server<-(function(input,output){
                 }
                 
                 if (exists("wordrange") == FALSE){
-                        ## Creating logical vectors for each matrix if the preword found in each matrix or not  
+                        ## Creating logical vectors for each matrix if
+                        ## the preword found in each matrix or not  
                         x<-pre %in% inwordspre1
                         y<-pre %in% inwordspre2
                         z<-pre %in% inwordspre3
-                        ## Getting the row from the matrix that the preword found in which contains the probabilities
+                        ## Getting the row from the matrix that the preword 
+                        ## found in which contains the probabilities
                         if (x == TRUE) {
                                 wordrange<-probmatrix1[(rownames(probmatrix1) == pre) == TRUE,]
                         }
@@ -169,17 +205,20 @@ server<-(function(input,output){
                         }
                         
                         if (x == FALSE & y == FALSE & z == FALSE){
-                                ## If no words are found shortening the preword by two words
+                                ## If no words are found shortening the preword 
+                                ## by two words
                                 pre<-suppressWarnings(preword(pre,1))
                         }
                 }
                 
                 if (exists("wordrange") == FALSE){
-                        ## Creating logical vectors for each matrix if the preword found in each matrix or not 
+                        ## Creating logical vectors for each matrix if 
+                        ## the preword found in each matrix or not 
                         x2<-pre %in% inwordspre1
                         y2<-pre %in% inwordspre2
                         z2<-pre %in% inwordspre3
-                        ## Getting the row from the matrix that the preword found in which contains the probabilities
+                        ## Getting the row from the matrix that 
+                        ## the preword found in which contains the probabilities
                         if (x2 == TRUE) {
                                 wordrange<-probmatrix1[(rownames(probmatrix1) == pre) == TRUE,]
                         }
@@ -198,7 +237,8 @@ server<-(function(input,output){
                         }
                         result<-names(wordrange[1])
                 }else{
-                        ## if no result was found. The algorithm will return the top three words in the English language
+                        ## if no result was found. The algorithm will
+                        ## return the top three words in the English language
                         result<-c("the")
                 }
                 return(result)
