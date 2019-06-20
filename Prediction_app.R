@@ -43,11 +43,10 @@ ui<-dashboardPage(
                                                        href="http://rpubs.com/mah_elsheikh/506474"),
                         br(),
                                                      "Data product code:",br(),
-                                                     a("Milestone report part 2",
-                                                       href="http://rpubs.com/mah_elsheikh/506208"),
+                                                     a("Data product code",
+                                                       href="https://github.com/Mahelsheikh/Data-science-Capstone-project/blob/master/Prediction_app.R"),
                         br(),
-                                                     "Data product code:",
-                        br(),
+                                                    "Data product presentation:",br(),
                                                      a("Data product presentation",
                                                        href="http://rpubs.com/mah_elsheikh/506553"))
                 )
