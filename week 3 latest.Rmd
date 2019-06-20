@@ -1,0 +1,593 @@
+---
+title: "week 3"
+author: "Mahmoud Elsheikh"
+date: "5/24/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+* [Sampling][8.Sampling:]
+  + [Creating samples:][8.1 Creating samples:]
+  + [Tokenization function][8.2 Tokenization function:]
+  + [Creating phrase tables of samples][8.3 Creating phrase tables of samples:]
+  + [Comparing samples with full clean text][8.4 Comparing samples with full clean text:]
+* [Katz's back-off probability functions][9.Katz's back-off probability functions:]
+  + [Katz's back-off equations][9.1 Katz's back-off equations:]
+  + [Preword function][9.2 Preword function:]  
+  + [Preword function][9.2.1 Preword function:]
+  + [Testing Preword function][9.2.2 Testing Preword function:]
+  + [Katz's probability calculation without back-off function][9.3 Katz's probability calculation without back-off function:]
+  + [Calculating frequency of frequencies][9.3.1 Calculating frequency of frequencies:]
+  + [Calculating frequency of frequencies table][9.3.2 Calculating frequency of frequencies table:]
+  + [Calculating discount][9.3.3 Calculating discount]
+  + [Testing discount calculation][9.3.4 Testing discount calculation:]
+  + [Calculating discount][9.3.5 Calculating discount:]
+  + [Katz's probability calculation without back-off function][9.3.6 Katz's probability calculation without back-off function:]
+  + [Testing Katz's probability function][9.3.7 Testing Katz's probability function:]
+  + [Katz's probability with back-off][9.4 Katz's probability with back-off:]
+  + [Calculating beta][9.4.1 Calculating beta:]
+  + [Calculating alpha][9.4.2 Calculating alpha:]
+  + [Katz's probability with back-off function][9.4.3 Katz's probability with back-off function:]
+  + [Calculating Maximum likelihood probability][9.4.4 Calculating Maximum likelihood probability:]
+  + [Calculating back-off propability from bigrams to unigrams][9.4.5 Calculating back-off propability from bigrams to unigrams:]
+  + [Wrap up function to calculate Kat'z back-off probability][9.5 Wrap up function to calculate Kat'z back-off probability:]
+* [Creating a probability matrix from phrase table][10. Creating a probability matrix from phrase table:]
+  + [Probability matrix function][10.1 Probability matrix function:]
+  + [Creating probability matrix][10.2 Creating probability matrix:]
+* [Creating Wordsuggestion function][11. Creating Wordsuggestion function:]  
+
+
+### 8.Sampling:  
+### 8.1 Creating samples:  
+Took two samples of 0.5% of the cleaned text.These are to be used to create 2 matrices of prewords and current word keeping only unique prewords from the second matrix comparing to the prewords in the first matrix.  
+
+```{r 'Creating samples'}
+set.seed(1234)
+samptxt0.5<-sample(cleantxt,size = length(cleantxt)/500)
+set.seed(4321)
+samptxt0.52<-sample(cleantxt,size = length(cleantxt)/500)
+set.seed(6785)
+samptxttest<-sample(cleantxt,size = length(cleantxt)/500)
+```  
+
+### 8.2 Tokenization function:
+
+```{r 'Tokenization function'}
+ngramtable<-function(textsample){
+# Counting words in each line of text files
+  z<-c(1:length(textsample))
+wordslength<-vector(length = length(z))
+j<-1
+for (i in z) { wordslength[j] <- wordcount(textsample[i])
+j<-j+1
+}
+
+# Creating Unigram
+  ng1<-ngram(textsample,n=1,sep = " ")
+# Creating Bigram while excluding lines that has one word only
+  ng2<-ngram(textsample[wordslength !=1],n=2,sep= " ")
+# Creating Trigram while excluding lines that has one or two words only
+  ng3<-ngram(textsample[wordslength!=1 & wordslength !=2],n=3,sep = " ")
+# Creating Quadgram while excluding lines that has less than 4 words
+  ng4<-ngram(textsample[wordslength!=1 & wordslength !=2 & wordslength !=3],n=4,sep = " ")
+  
+# Converting the ngrams to phrase tables and arranging the tables descending
+  ng1tbl<-get.phrasetable(ng1)  %>% arrange(desc(freq)) %>% mutate (ngram_length = 1) %>% mutate(ngram = trim(ngrams)) %>% select(ngram,freq,ngram_length)
+  ng2tbl<-get.phrasetable(ng2)  %>% arrange(desc(freq)) %>% mutate (ngram_length = 2) %>% mutate(ngram = trim(ngrams)) %>% select(ngram,freq,ngram_length)
+  ng3tbl<-get.phrasetable(ng3)  %>% arrange(desc(freq)) %>% mutate (ngram_length = 3) %>% mutate(ngram = trim(ngrams)) %>% select(ngram,freq,ngram_length)
+  ng4tbl<-get.phrasetable(ng4)  %>% arrange(desc(freq)) %>% mutate (ngram_length = 4) %>% mutate(ngram = trim(ngrams)) %>% select(ngram,freq,ngram_length)
+  
+# Creating preword and currentword columns in the phrase tables
+ngram1<-ng1tbl %>% mutate(preword= "",currentword = "")
+ngram2<-ng2tbl %>% mutate(preword= word(ngram,start = 1L,end = 1L),currentword = word(ngram,start = 2L,end = 2L))
+ngram3<-ng3tbl %>% mutate(preword= word(ngram,start = 1L,end = 2L),currentword = word(ngram,start = 3L,end = 3L))
+ngram4<-ng4tbl %>% mutate(preword= word(ngram,start = 1L,end = 3L),currentword = word(ngram,start = 4L,end = 4L))
+
+# Binding all three tables in to one table
+  ngtbl<-rbind.data.frame(ngram1,ngram2,ngram3,ngram4)
+  
+# Removing all NA current words to avoid any later errors
+  ngtbl<-ngtbl[is.na(ngtbl$currentword) != TRUE,]
+  
+  return(ngtbl)
+}
+```  
+
+### 8.3 Creating phrase tables of samples:
+
+```{r 'Creating phrase tables',cache=TRUE}
+ngtbl0.5<-ngramtable(samptxt0.5)
+ngtbl0.5final<-ngtbl0.5[ngtbl0.5$freq !=1,]
+ngtbl0.52<-ngramtable(samptxt0.52)
+ngtbl0.5final2<-ngtbl0.52[ngtbl0.52$freq !=1,]
+ngtblfull<-ngramtable(cleantxt)
+ngtblfullfinal<-ngtblfull[ngtblfull$freq !=1,]
+```  
+
+### 8.4 Comparing samples with full clean text:
+
+The aim here is to compare how many words are covered by the samples and deciding which sample size to use to build the model. As the free shiny-app has its limitations of 1 Gb. Also a large sample will cause the app to take too much time to load. 
+
+```{r 'Comparing sample'}
+## Separating full ngram table according to ngram_length
+ng1tbl<-ngtblfull[ngtblfull$ngram_length == 1,]
+ng2tbl<-ngtblfull[ngtblfull$ngram_length == 2,]
+ng3tbl<-ngtblfull[ngtblfull$ngram_length == 3,]
+## Comparing unigrams covered by the 0.5 sample size
+unigram0.5<-ngtbl0.5final[ngtbl0.5final$ngram_length ==1,]
+outuningrams0.5<- !(ng1tbl$ngram %in% unigram0.1$ngram)
+unigramsum0.5<-sum(ng1tbl[outuningrams0.1 == FALSE,]$freq)
+unigramsumfull<-sum(ng1tbl$freq)
+uniresult<-(unigramsum0.1/unigramsumfull)*100
+## Comparing bigrams covered by the 0.5 sample size
+bigram0.5<-ngtbl0.5final[ngtbl0.5final$ngram_length==2,]
+outbingrams0.5<- !(ngtbl0.5final$ngram %in% bigram1$ngram)
+bigramsum0.5<-sum(ngtbl0.5final[outbingrams1 == FALSE,]$freq)
+bigramsumfull<-sum(ng2tbl$freq)
+biresult<-(bigramsum1/bigramsumfull)*100
+## Comparing Trigrams covered by the 0.5 sample size
+trigram0.5<-ngtbl0.5final[ngtbl0.5final$ngram_length==3,]
+outtringrams0.5<- !(ngtbl0.5final$ngram %in% trigram1$ngram)
+trigramsum0.5<-sum(ngtbl0.5final[outtringrams1 == FALSE,]$freq)
+trigramsumfull<-sum(ng3tbl$freq)
+triresult1<-(trigramsum0.5/trigramsumfull)*100
+```
+
+As we can see `uniresult1` of full text words are presented in the 1% sample and `uniresult10` of full text words are presented in the 10% sample.  
+
+### 9.Katz's back-off probability functions:
+#### 9.1 Katz's back-off equations:
+The katz's back-off probability is to discount the seen n-gram combination probabilities and preserve this discount for the unseen n-gram combinations probabilities. So if there is an n-gram combination that is unseen will back-off to (n-1)-gram and so on till we find an ngram then calculate the probability of the found of ngram. If there is no ngram found in the observed bigrams then will go to unigrams to calculate the probability. The equation below explains the whole process.   
+The equation for Katz's back-off model is:  
+$$P_{bo}(w_{i}|w_{i-n+1}...w_{i-1}) = \begin{cases} d_{w_{i-n+1...w_{i}}}\frac{C(w_{i-n+1}...w_{i-1}w_{i})}{C(w_{i-n+1}...w_{i})}\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;if C(w_{w_{i-n+1...wi}}>k) \\\\\alpha_{w_{i-n+1}...w_{i-1}}P_{bo}(w_{i}|w_{i-n+2}...w_{i-1})\;\;\;\;\;\;\;\;\; otherwise \end{cases}$$  
+Discount is:
+$$d=\frac{C^*}{C}$$  
+to compute $$\alpha$$ we need to calculate $$\beta$$:
+$$\beta_{w_{i-n+1}...w_{i-1}}=1-\sum_{\{w_{i}:C(w_{i-n+1}...w_{i})>k\}}d_{w_{i-n+1...w_{i}}}\frac{C(w_{i-n+1}...w_{i-1}w_{i})}{C(w_{i-n+1}...w_{i-1})}$$  
+Then the back-off weight $$\alpha$$ is:
+$$\alpha_{w_{i-n+1}...w_{i-1}} =\frac{\beta_{w_{i-n+1}...w_{i-1}}}{\sum_{\{w_{i}:C(w_{i-n+1}...w_{i})\le k\}} P_{bo}(w_{i}|w_{i-n+2}...w_{i-1})}$$  
+The above equation is for backing-off till we reach bigrams.To back-off from bigrams to unigrams will follow the following equations:  
+Seen bigrams:  
+$$A(w_{i-1})= \{w:Count(w_{i-1},w)>0\}$$  
+Unseen bigrams:  
+$$B(w_{i-1})= \{w:Count(w_{i-1},w)=0\}$$  
+Then the probability is:  
+$$q_{BO}(w_{i}|w_{i-1}) =\begin{cases} \frac{Count^*_{(w_{i-1},w_{i})}}{Count_{(w_{i-1})}}\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;ifw_{i} \epsilon\ A(w_{i-1})\\\\ \alpha(w_{i-1})\frac{^qML^{(w_{i})}}{\sum_{w \;\epsilon\ B(w_{i-1})^qML^{(w)}}}\;\;\;\;\;\;\;\;\;\;\;\;\;ifw_{i}\; \epsilon\ B(w_{i-1}) \end{cases} $$  
+And the $$\alpha$$ is:  
+$$\alpha(w_{i-1})=1-\sum_{w\;\epsilon\ A(w_{i-1})} \frac{Count^*(w_{i-1},w)}{Count(w_{i-1})}$$
+
+
+#### 9.2 Preword function:  
+##### 9.2.1 Preword function:  
+
+```{r 'Preword function'}
+preword<-function(x,n){
+## Creating vectors
+      n<-n-1
+## Subsetting preword according to n value wanted
+      wordlength<-wordcount(x)
+      if (wordlength == 1) {
+        preword<-x
+      }else{
+        preword<-paste(strsplit(x,split = " ")[[1]][(wordlength-n):wordlength],collapse = " ")
+      }
+      return(preword)
+}
+```  
+
+##### 9.2.2 Testing Preword function:  
+
+```{r 'Testing Preword function'}
+preword("testing the function working properly",5)
+preword("testing the function working properly",4)
+preword("testing the function working properly",3)
+preword("testing the function working properly",2)
+preword("testing the function working properly",1)
+```
+
+
+#### 9.3 Katz's probability calculation without back-off function:
+##### 9.3.1 Calculating frequency of frequencies:  
+
+```{r 'Frequency of frequencies'}
+## Function to calculate frequency of frequencies table
+fofs<-function(ngtbl){
+freq_of_freqs<-as.data.frame(table(ngtbl$freq))
+return(freq_of_freqs)
+}
+```  
+
+##### 9.3.2 Calculating frequency of frequencies table:  
+```{r 'Calculating frequency of frequencies table'}
+freq_of_freqs0.5<-fofs(ngtbl0.5final)
+kable(freq_of_freqs) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  scroll_box(width = "100%", height = "300px")
+```
+
+
+##### 9.3.3 Calculating discount:  
+$$d=\frac{C^*}{C}$$
+
+```{r 'Discount functions'}
+discountf<-function(c,fofstbl){
+## Calculating Good-turning count
+  if((c+1) %in% fofstbl$Var1 == TRUE) {
+    gtc<-(c+1)*fofstbl[fofstbl$Var1== (c+1),]$Freq / fofstbl[fofstbl$Var1 == c,]$Freq
+  }else{
+    gtc<-(c+1)*1/fofstbl[fofstbl$Var1== c,]$Freq
+  }
+## Calculating discount
+  d<-ifelse(gtc/c<1,gtc/c,1)
+  return(d)
+}
+
+dcalcf<-function(freq_values,freq_of_freqtbl){
+## Creating vectors
+discount<-vector(length = length(freq_values))
+j<-1
+## Calculating discounts for all frequencies in phrase table
+for(i in freq_values){
+  discount[j]<-discountf(i,freq_of_freqtbl)
+  j<-j+1
+}
+return(discount)
+}
+```  
+
+##### 9.3.4 Testing discount calculation:
+
+```{r Testing discount}
+discountf(1,freq_of_freqs)
+discountf(5,freq_of_freqs)
+```  
+
+##### 9.3.5 Calculating discount:
+
+```{r 'Calculating discount',cache=TRUE}
+## Calculating discount for pharase table
+discount<-dcalcf(ngtbl0.5final$freq,freq_of_freqs0.5)
+discount2<-dcalcf(ngtbl0.5final2$freq,freq_of_freqs0.52)
+## Combining dicount with pharse table
+ngtbl0.5final<-cbind(ngtbl0.5final,discount)
+ngtbl0.5final2<-cbind(ngtbl0.5final2,discount2)
+```  
+
+##### 9.3.6 Katz's probability calculation without back-off function:  
+
+$$P_{bo}(w_{i}|w_{i-n+1}...w_{i-1}) = d_{w_{i-n+1...w_{i}}}\frac{C(w_{i-n+1}...w_{i-1}w_{i})}{C(w_{i-n+1}...w_{i})}$$
+
+
+```{r 'Katz's probability function'}
+katzp <- function(ngtbl,freq_of_freqs,pre,current) {
+  freq1<- ngtbl[ngtbl$preword == pre & ngtbl$currentword == current, ]$freq
+  freq2<- ngtbl[ngtbl$ngram == pre, ]$freq
+  discount<-ngtbl[ngtbl$preword == pre & ngtbl$currentword == current, ]$discount
+  propability<-discount*freq1/freq2
+  return(propability)
+  }
+```  
+
+##### 9.3.7 Testing Katz's probability function:  
+
+```{r Testing Katz's probability function}
+katzp(ngtbl0.5full,freq_of_freqs0.1,"of","the")
+katzp(ngtbl0.5full,freq_of_freqs0.1,"in","the")
+katzp(ngtbl0.5full,freq_of_freqs0.1,"it's","a")
+```
+
+#### 9.4 Katz's probability with back-off:
+##### 9.4.1 Calculating beta: 
+$$\beta_{w_{i-n+1}...w_{i-1}}=1-\sum_{\{w_{i}:C(w_{i-n+1}...w_{i})>k\}}d_{w_{i-n+1...w_{i}}}\frac{C(w_{i-n+1}...w_{i-1}w_{i})}{C(w_{i-n+1}...w_{i-1})}$$
+
+```{r 'Calculating beta'}
+beta<-function(ngtbl,pre,current) {
+  ## Creating vector
+  x<-ngtbl[ngtbl$preword == pre,]
+  prebeta<-vector(length = nrow(x))
+  j<-1
+  ## Calculating prebeta according to the equation above
+  for (i in 1: nrow(x)) {
+      prebeta[j]<-x$discount[i]*x$freq[i]/ngtbl[ngtbl$ngram == pre,]$freq
+      j<-j+1
+  }
+  ## Calculating beta
+  beta<-1-sum(prebeta)
+  return(beta)
+}
+```  
+
+##### 9.4.2 Calculating alpha: 
+$$\alpha_{w_{i-n+1}...w_{i-1}} =\frac{\beta_{w_{i-n+1}...w_{i-1}}}{\sum_{\{w_{i}:C(w_{i-n+1}...w_{i})\le k\}} P_{bo}(w_{i}|w_{i-n+2}...w_{i-1})}$$
+
+```{r 'Calculating alpha'}
+alpha<-function(ngtbl,freq_of_freqs,pre,current){
+  ## Calculating beta for the preword
+  y<-beta(ngtbl,pre)
+  ## Creating vector
+  katz<-vector(length = nrow(ngtbl[ngtbl$preword == pre,]))
+  j<-1
+  ## Calculating prealpha value
+  for (i in ngtbl[ngtbl$preword == pre,]$currentword){
+  katz[j]<-katzp(ngtbl,freq_of_freqs,pre,i)
+  j<-j+1
+  }
+  ## Calculating alpha
+  alpha<-y/sum(katz)
+  return(alpha)
+}
+```
+
+##### 9.4.3 Katz's probability with back-off function:  
+
+$$P_{bo}(w_{i}|w_{i-n+1}...w_{i-1}) =\alpha_{w_{i-n+1}...w_{i-1}}P_{bo}(w_{i}|w_{i-n+2}...w_{i-1})$$
+
+```{r 'Katz's back-off probability function'}
+katzbop<-function(ngtbl,freq_of_freqs,pre,current) {
+  ## Calculating alpha
+  alphabo<-alpha(ngtbl,freq_of_freqs,pre,current)
+  ## Calculating Katz's without back-off
+  propability<-katzp(ngtbl,freq_of_freqs,pre,current)
+  ## Calculating Katz's back-off probability
+  backoff<-alphabo*propability
+  return(backoff)
+}
+```  
+
+##### 9.4.4 Calculating Maximum likelihood probability:  
+Seen bigrams:
+$$A(w_{i-1})= \{w:Count(w_{i-1},w)>0\}$$  
+Unseen bigrams:
+$$B(w_{i-1})= \{w:Count(w_{i-1},w)=0\}$$  
+Then the probability is:  
+$$q_{BO}(w_{i}|w_{i-1}) =\begin{cases} \frac{Count^*_{(w_{i-1},w_{i})}}{Count_{(w_{i-1})}}\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;\;ifw_{i} \epsilon\ A(w_{i-1})\\\\ \alpha(w_{i-1})\frac{^qML^{(w_{i})}}{\sum_{w \;\epsilon\ B(w_{i-1})^qML^{(w)}}}\;\;\;\;\;\;\;\;\;\;\;\;\;ifw_{i}\; \epsilon\ B(w_{i-1}) \end{cases} $$  
+And the $$\alpha$$ is:  
+$$\alpha(w_{i-1})=1-\sum_{w\;\epsilon\ A(w_{i-1})} \frac{Count^*(w_{i-1},w)}{Count(w_{i-1})}$$
+```{r 'Maximum likelihood probability for unigrams'}
+PML<-function(ngtbl){
+  ## Frequency sum for all unigrams
+  freqsum<-sum(ngtbl$freq[ngtbl$ngram_length == 1])
+  ## Creating vector
+  PML<-vector(length = length(ngtbl$freq))
+  j<-1
+  ## Calculating Maximum likelihood
+     for (i in 1:length(ngtbl$freq)){
+          if (ngtbl$ngram_length[i] == 1){
+          PML[j]<-ngtbl$freq[i]/freqsum
+          }else{
+          PML[j]<-0
+          }
+       j<-j+1
+     }
+  ## Binding Maximum likelihood with phrase table
+  ngtbl<-cbind(ngtbl,pml=PML)
+  return(ngtbl)
+}
+```
+
+```{r}
+ngtbl0.5final<-PML(ngtbl0.5final)
+ngtbl0.5final2<-PML(ngtbl0.5final2)
+```
+
+##### 9.4.5 Calculating back-off propability from bigrams to unigrams:
+
+```{r''Calculating back-off propability from bigrams to unigrams'}
+bitounibackoff<-function(ngtbl,pre,current){
+  ## Separating seen and unseen grams
+    seen<-ngtbl$currentword[ngtbl$preword == pre]
+    unseen<-ngtbl$ngram[ngtbl$ngram_length==1 & !(ngtbl$ngram %in% seen)]
+  ## Calculating alpha2 according to the above equation
+    alpha2<-1-sum((ngtbl$freq[ngtbl$preword == pre]*ngtbl$discount[ngtbl$preword == pre]/ngtbl$freq[ngtbl$ngram == pre][1]))
+  ## Calculating probability
+    probability<-alpha2*(ngtbl$pml[ngtbl$ngram == current]/sum(ngtbl$pml[ngtbl$ngram %in% unseen]))
+    return(probability)
+}
+```  
+
+#### 9.5 Wrap up function to calculate Kat'z back-off probability:  
+
+```{r 'Wrap up function'}
+katzcalc<-function(ngtbl,freq_of_freqs,pre,current){
+  ## Creating vector for preword function
+  n=2
+  ## Searching for the pre and current grams in the phrase table
+  x<-nrow(ngtbl[ngtbl$preword == pre & ngtbl$currentword == current,])
+  ## Calculating probability if the pre and current gram is seen 
+  if(x != 0){
+          result<-katzp(ngtbl,freq_of_freqs,pre,current)
+  }else{
+    ## Shorten the preword for back-off calculation
+       pre<-preword(pre,n-1)
+    ## Searching for the shortened pre and current grams in the phrase table  
+       y<-nrow(ngtbl[ngtbl$preword == pre & ngtbl$currentword == current,])
+  if(y != 0){
+    ## Calculating back-off probability if the shortened pre and current gram is seen 
+          result<-katzbop(ngtbl,freq_of_freqs,pre,current)
+  }else{
+    ## If no gram combination found then calculating the probability based on unigrams
+          result<-bitounibackoff(ngtbl,pre,current)
+  }
+  }
+  return(result[1])
+  }
+``` 
+
+
+```{r 'Wrap up function for quadgrams'}
+katzcalcquad<-function(ngtbl,freq_of_freqs,pre,current){
+  ## Creating vector for preword function
+        n=3
+  ## Looking for the preword and current word combination in the phrase table
+        x<-nrow(ngtbl[ngtbl$preword == pre & ngtbl$currentword == current,])
+  ## Shortening of the preword by one word then looking for the combination in the pharse table
+        pre1<-preword(pre,n-1)
+        y<-nrow(ngtbl[ngtbl$preword == pre1 & ngtbl$currentword == current,])
+  ## Shortening of the preword by two words then looking for the combination in the pharse table
+        pre2<-preword(pre,n-2)
+        z<-nrow(ngtbl[ngtbl$preword == pre2 & ngtbl$currentword == current,])
+  ## Calculating probability depending on whether back-off is done or not
+        if(x != 0){
+                result<-katzp(ngtbl,freq_of_freqs,pre,current)
+        }
+        if(x == 0 & y != 0){
+                result<-katzbop(ngtbl,freq_of_freqs,pre1,current)
+        }
+        if(x == 0 & y == 0 & z != 0){
+                result<-katzbop(ngtbl,freq_of_freqs,pre2,current)
+        }
+  ## if no combination to be found then refering to the maximum likelihood equation and calculating from unigrams
+        if(x == 0 & y == 0 & z == 0){
+                result<-bitounibackoff(ngtbl,pre,current)
+        }
+        return(result[1])
+}
+```  
+  
+### 10. Creating a probability matrix from phrase table:  
+#### 10.1 Probability matrix function:  
+  
+```{r 'Probability matrix function'}
+probmatrixfun<-function(ngram,freq_of_freqs){
+## Creating vectors containing all unique prewords and currentword from the pharse table
+preunique<-preuniquequad[401:783]
+currentunique<-currentuniquequad1
+## Creating matrix with dimentions rows == length of prewords and columns == length of currentwords
+probmatrix<-matrix(NA,nrow=length(preunique),ncol=length(currentunique))
+## Defining rows names and columns names for the matrix
+rownames(probmatrix)<-preunique
+colnames(probmatrix)<-currentunique
+## Calculating probability for each pre word and current word
+ for (b in 1:length(preunique)){
+  for (s in 1:length(currentunique)){
+    probmatrix[b,s]<-katzcalc2(ngram,freq_of_freqs,preunique[b],currentunique[s])
+  }
+## Percentage complete during the calculation process
+   print((b/length(preunique)*100))
+    if (b/length(preunique)*100 == 100) cat("Done!\n")
+   flush.console()
+}
+return(probmatrix)
+}
+```  
+
+#### 10.2 Creating probability matrix:
+
+```{r 'Creating probability matrix'}
+## Creating preunique and currentunique vectors:
+## Creating preunique and currentunique vectors for the first phrase table:
+preunique0.5<-unique(ngtbl0.5final[ngtbl0.5final$ngram_length !=1,]$preword)
+currentunique0.5<-unique(ngtbl0.5final[ngtbl0.5final$ngram_length !=1,]$currentword)
+## Creating preunique and currentunique vectors for the second phrase table:
+preunique0.52<-unique(ngtbl0.5final2[ngtbl0.5final2$ngram_length !=1,]$preword)
+preunique0.52<-preunique0.52[!(preunique0.52 %in% preunique0.5)]
+currentunique0.52<-unique(ngtbl0.5final2[ngtbl0.5final2$ngram_length !=1,]$currentword)
+## Creating 
+## Creating probability matrices:
+probmatrix0.5<-probmatrixfun(ngtbl0.5final,freq_of_freqs0.5final)
+probmatrix0.52<-probmatrixfun(ngtbl0.5final2,freq_of_freqs0.5final2)
+```  
+
+#### 11. Creating Wordsuggestion function:  
+  
+```{r 'Word suggestion function'}
+wordsuggestion<-function(pre){
+  ## Creating needed vectors
+  require(ngram)
+  pre<-tolower(pre)
+  quadmatrix<-markovquad
+  inwordsquad<-rownames(quadmatrix)
+  markovmatrix1 = markovmatrix0.5full
+  inwordspre1<-rownames(markovmatrix1)
+  markovmatrix2 = markovmatrixadd1f
+  inwordspre2<-rownames(markovmatrix2)
+  markovmatrix3 = markovmatrix0.5full3
+  inwordspre3<-rownames(markovmatrix3)
+  ## Defining preword from the given sentence if no word is given
+  if (pre == ""){pre =="1" }
+  ##  If the given sentence is longer than three words
+  if(wordcount(pre) > 3){
+    pre<-preword(pre,3)
+  ## Testing if the preword exist in the quadgram matrix
+  d<-pre %in% inwordsquad
+  if (d == TRUE) {
+  ## Getting word suggestion from quad gram matrix in case the preword exists in the quadgram
+    wordrange<-quadmatrix[(rownames(quadmatrix) == pre) == TRUE,]
+  }else{
+  ## If no words are found shortening the preword by one word
+    pre<-preword(pre,2)
+  }
+  }
+  
+  if (exists("wordrange") == FALSE){
+  ## Creating logical vectors for each matrix if the preword found in each matrix or not  
+  x<-pre %in% inwordspre1
+  y<-pre %in% inwordspre2
+  z<-pre %in% inwordspre3
+  ## Getting the row from the matrix that the preword found in which contains the probabilities
+  if (x == TRUE) {
+    wordrange<-markovmatrix1[(rownames(markovmatrix1) == pre) == TRUE,]
+  }
+  if (y == TRUE) {
+    wordrange<-markovmatrix2[(rownames(markovmatrix2) == pre) == TRUE,]
+  }
+  if (z == TRUE) {
+    wordrange<-markovmatrix3[(rownames(markovmatrix3) == pre) == TRUE,]
+  }
+  
+  if (x == FALSE & y == FALSE & z == FALSE){
+  ## If no words are found shortening the preword by two words
+    pre<-suppressWarnings(preword(pre,1))
+  }
+  }
+  
+  if (exists("wordrange") == FALSE){
+  ## Creating logical vectors for each matrix if the preword found in each matrix or not 
+  x2<-pre %in% inwordspre1
+  y2<-pre %in% inwordspre2
+  z2<-pre %in% inwordspre3
+  ## Getting the row from the matrix that the preword found in which contains the probabilities
+  if (x2 == TRUE) {
+    wordrange<-markovmatrix1[(rownames(markovmatrix1) == pre) == TRUE,]
+  }
+  if (y2 == TRUE) {
+    wordrange<-markovmatrix2[(rownames(markovmatrix2) == pre) == TRUE,]
+  }
+  if (z2 == TRUE) {
+    wordrange<-markovmatrix3[(rownames(markovmatrix3) == pre) == TRUE,]
+  }
+  }
+  ## If a result was found from the above algorithm
+  if (exists("wordrange") == TRUE){
+    wordrange<-sort(wordrange,decreasing = TRUE)
+    result<-names(wordrange[1:3])
+    }else{
+  ## if no result was found. The algorithm will return the top three words in the English language
+      result<-c("the","and","to")
+   }
+    return(result)
+      }
+
+```
+
+```{r}
+testfun<-function(tbl){
+    pre<-tbl$preword
+    current<-tbl$currentword
+    x<-vector(length = length(pre))
+    j<-1
+    for (i in 1:length(pre)){
+      y<-wordsuggestion(pre[i])
+      if ( current[i] %in% y == TRUE){
+        x[j]<- TRUE
+      }else{
+        x[j]<- FALSE
+      }
+        j<-j+1
+      }
+    result<-(length(x[x == TRUE])/length(x))*100
+    return(result)
+}
+```

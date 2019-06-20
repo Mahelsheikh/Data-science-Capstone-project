@@ -1,0 +1,272 @@
+---
+title: "Data science capstone project swiftkey project"
+author: "Mahmoud Elsheikh"
+date: "6/19/2019"
+output: 
+  html_document: 
+    fig_caption: yes
+---
+```{r Setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,envir= globalenv())
+```  
+
+* [Synopsis:][1.Synopsis:]  
+* [loading libraries:][2.loading libraries:]  
+* [Downloading files:][3.Downloading files:]  
+* [Exploration of en_US files:][4.Exploration of en_US files:]  
+* [Creating a function to clean text:][5.Creating a function to clean text:]  
+* [Reading and cleaning files:][6.Reading and cleaning files:]  
+* [Tokenization:][7.Tokenization:]  
+  + [Counting words per line of cleaned text:][7.1 Counting words per line of cleaned text:]  
+  + [Creating Unigram][7.2.1 Creating Unigram:]  
+  + [Unigram graphs and table][7.2.2 Unigram graphs and table:] 
+  + [Creating bigram][7.3.1 Creating bigram:]
+  + [Bigram graphs and table][7.3.2 Bigram graphs and table:]
+  + [Creating trigram][7.4.1 Creating trigram:]
+  + [Trigram graphs and table][7.4.2 Trigram graphs and table:]  
+* [Future steps][8.Future steps:]
+
+### 1.Synopsis:  
+The Data provided contains 3 files **en_US.blogs.txt**,**en_US.news.txt**,**en_US.twitter.txt**. These files will be cleaned first then used to create different n-grams. These n-grams will be used to create a transition Markov chain matrix using katz's back-off probability calculations.Firstly,a thorough exploration of these files is in place.
+
+### 2.loading libraries:  
+Loading necessary libraries.
+
+```{r Libraries, warning=FALSE,message=FALSE}
+# Loading needed libraries
+library(tidyverse) ;library(cld3) ;library(wordcloud) ;library(ngram) ;library(knitr) ;library(plyr) ;library(gdata);library(R.utils);library(tm);library(kableExtra)
+```  
+### 3.Downloading files:  
+  
+1.Downloading the Coursera-Swiftkey.zip from the given link.  
+2.Uncompress the file.  
+3.The eng_US folder contain three files:   **en_US.blogs.txt**,**en_US.news.txt**,**en_US.twitter.txt**  
+
+```{r Download, echo=FALSE,eval=FALSE}
+# Creating a file link
+fileurl<-"https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip"
+# Downloading file
+download.file(fileurl,destfile = "/Users/mahmoudelsheikh/Google Drive/Coursera Data analysis/Courseraworkingspace/final/coursera-SwiftKey.zip")
+# Extracting the zip file
+unzip("/Users/mahmoudelsheikh/Google Drive/Coursera Data analysis/Courseraworkingspace/final/coursera-SwiftKey.zip")
+```  
+
+ 
+### 4.Exploration of en_US files:  
+
+1.Counting lines in each file.  
+2.Counting words in each file.  
+
+```{r Exploration, cache=TRUE,warning=FALSE,message=FALSE}
+# Counting lines for each file
+linecount1<-countLines("/Users/mahmoudelsheikh/Google Drive/Coursera Data analysis/Courseraworkingspace/final/en_US/en_US.blogs.txt")
+linecount2<-countLines("/Users/mahmoudelsheikh/Google Drive/Coursera Data analysis/Courseraworkingspace/final/en_US/en_US.news.txt")
+linecount3<-countLines("/Users/mahmoudelsheikh/Google Drive/Coursera Data analysis/Courseraworkingspace/final/en_US/en_US.twitter.txt")
+
+# Reading en_US.blog.txt
+con1<-file("/Users/mahmoudelsheikh/Google Drive/Coursera Data analysis/Courseraworkingspace/final/en_US/en_US.blogs.txt","r")
+txt1<-readLines(con1)
+close(con1)
+ 
+# Reading en_US.news.txt
+con2<-file("/Users/mahmoudelsheikh/Google Drive/Coursera Data analysis/Courseraworkingspace/final/en_US/en_US.news.txt","r")
+txt2<-readLines(con2)
+close(con2)
+
+# Reading en_US.twitter.txt
+con3<-file("/Users/mahmoudelsheikh/Google Drive/Coursera Data analysis/Courseraworkingspace/final/en_US/en_US.twitter.txt","r")
+txt3<-readLines(con3)
+close(con3)
+
+# Counting words for each file
+Word_count<-c(wordcount(txt1),wordcount(txt2),wordcount(txt3))
+
+# Combining data to create a result table
+Line_count<-c(linecount1,linecount2,linecount3)
+Source_file<-c("en_US.blogs.txt","en_US.news.txt","en_US.twitter")
+Result<-cbind.data.frame('Source file' = Source_file,'Number of lines'= Line_count,'Number of Words'= Word_count)
+kable(Result,caption = "Table 1: showing line counts and word count for each English text file") %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```  
+
+### 5.Creating a function to clean text:  
+The function does the following:  
+1. Transform all text to lower case.  
+2. Remove Punctuation except intra word contractions like "'" and intra word dashes "-".  
+3. Remove numbers as numbers are out of the scope of the application.  
+4. Remove extra white spaces in all text files.  
+5. Detect language and keep only English language as other languages are out of the scope of the application.  
+6. Remove any Null lines after cleaning.  
+
+```{r Cleaning function}
+cleantext<-function(text_vector) {
+  x<-text_vector
+  # Transforming all letters to lower case
+  x<-tolower(x)
+  # Detecting language and keeping only lines that are English
+  cattxt<-detect_language(x)
+  x<-x[cattxt == "en"]
+  # Remove Punctuation keeping only dashes and contractions
+  x<-removePunctuation(x,preserve_intra_word_contractions = TRUE,preserve_intra_word_dashes = TRUE)
+  # Remove Numbers
+  x<-removeNumbers(x)
+  # Removing White spaces and trimming incase of extra spaces
+  x<-stripWhitespace(x)
+  trim<-function (x) gsub("^\\s+|\\s+$", "", x)
+  trim2<-function (x) gsub("  "," ",x)
+  trim3<-function (x) gsub("   "," ",x)
+  trim4<-function (x) gsub("    "," ",x)
+  x<-trim(x)
+  x<-trim4(x)
+  x<-trim3(x)
+  x<-trim2(x)
+  # Removing lines that are NA after cleaning
+  notna<-!is.na(x)
+  x<-x[notna == TRUE]
+}
+```  
+
+### 6.Reading and cleaning files:  
+ 
+```{r,eval=FALSE}
+# Cleaning and combining all texts in to one vector
+cleantxt<-cleantext(c(txt1,txt2,txt3))
+```  
+
+### 7.Tokenization:  
+#### 7.1 Counting words per line of cleaned text:  
+In a count of words in each line will prove useful in the tokenization step. This will help excluding any line that contains less than 2 words while creating Bigrams or excluding any line that contains less than 3 words while creating Trigrams.
+```{r,cache=TRUE}
+#Creating wordslength vector
+wordslength<-vector(length = length(cleantxt))
+j<-1
+# Counting words in each line of text files
+for (i in 1:length(cleantxt)) { wordslength[j] <- wordcount(cleantxt[i])
+j<-j+1
+}
+head(wordslength,10)
+```  
+
+#### 7.2.1 Creating Unigram:
+
+```{r Unigram,eval=FALSE}
+# Tokenization
+ng1<-ngram(cleantxt,n=1,sep = " ")
+# Getting pharse table and arranging descendingly by frequency
+ng1tbl<-get.phrasetable(ng1)  %>% arrange(desc(freq)) %>% mutate (ngram_length = 1) %>% mutate(ngram = trim(ngrams)) %>% select(ngram,freq,ngram_length)
+# Creating preword and currentword columns
+ng1tbl<-ng1tbl %>% mutate(preword= "",currentword = "")
+# Removing NA rows from currentword column (to make sure no errorous rows in the table)
+ng1tbl<-ng1tbl[is.na(ng1tbl$currentword) != TRUE,]
+```  
+
+#### 7.2.2 Unigram graphs and table:
+
+```{r Unigram graphs,fig.height=8, fig.width=10,fig.cap="Figure 1:Histogram showing top 30 Unigram tokens",message=FALSE, warning=FALSE}
+# Unigram phrase table structure
+str(ng1tbl)
+# View the 30 most frequent tokens in Unigram tokens
+topuni<-ng1tbl[1:30,]
+kable(topuni,caption = "Table 2:Top 30 Unigram tokens") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  scroll_box(width = "100%", height = "300px")
+# Graph showing top 30 Unigram tokens
+topunig<-ggplot(topuni,aes(reorder(ngram,-freq),freq))+geom_col()+ggtitle("Most frequent Unigram tokens")+xlab("Unigram tokens")+ylab("Frequency")+theme(plot.title = element_text(size = 20),axis.title = element_text(color = "black",face = "italic",size = 14,hjust = 0),axis.text.x = element_text(angle = 45, hjust = 1, size = 14),axis.text.y = element_text(size = 14))
+
+topunig
+```  
+
+```{r Unigram word cloud, fig.cap="Figure 2:Wordcloud showing top 500 Unigram tokens", fig.height=8, fig.width=10, message=FALSE, warning=FALSE}
+# Creating a word cloud graph for top 500 Unigram tokens
+pal<-brewer.pal(8,"Dark2")
+topuni100<-ng1tbl[1:500,]
+wordcuni<-wordcloud(words = topuni100$ngram,freq = topuni100$freq,colors=pal,random.color = TRUE,random.order = FALSE,rot.per = 0)
+```  
+
+#### 7.3.1 Creating bigram:
+
+```{r Bigram,eval=FALSE}
+# Tokenization after excluding any line that has less than 2 words
+ng2<-ngram(cleantxt[wordslength !=1],n=2,sep= " ")
+# Getting pharse table and arranging descendingly by frequency 
+ng2tbl<-get.phrasetable(ng2)  %>% arrange(desc(freq)) %>% mutate (ngram_length = 2) %>% mutate(ngram = trim(ngrams)) %>% select(ngram,freq,ngram_length)
+# Creating preword and currentword columns
+ng2tbl<-ng2tbl %>% mutate(preword= word(ngram,start = 1L,end = 1L),currentword = word(ngram,start = 2L,end = 2L))
+# Removing NA rows from currentword column (to make sure no errorous rows in the table)
+ng2tbl<-ng2tbl[is.na(ng2tbl$currentword) != TRUE,]
+```  
+
+#### 7.3.2 Bigram graphs and table:
+
+```{r Bigram graphs, fig.height=8, fig.width=10, fig.cap="Figure 3:Histogram showing top 30 Bigram tokens",message=FALSE}
+# Bigram phrase table structure
+str(ng2tbl)
+# View the 30 most frequent tokens in Bigram tokens
+topbi<-ng2tbl[1:30,]
+kable(topbi,caption = "Table 3:Top 30 Bigram tokens") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  scroll_box(width = "100%", height = "300px")
+# Graph showing top 30 Bigram tokens
+topbig<-ggplot(topbi,aes(reorder(ngram,-freq),freq))+geom_col()+ggtitle("Most frequent Bigram tokens")+xlab("Bigram tokens")+ylab("Frequency")+theme(plot.title = element_text(size = 20),axis.title = element_text(color = "black",face = "italic",size = 14,hjust = 0),axis.text.x = element_text(angle = 45, hjust = 1, size = 14),axis.text.y = element_text(size = 14))
+
+topbig
+```
+
+```{r Bigram word cloud, fig.height=8, fig.width=10, fig.cap="Figure 4:Wordcloud showing top 500 Bigram tokens",message=FALSE}
+# Creating a word cloud graph for top 500 Bigram tokens
+pal<-brewer.pal(8,"Dark2")
+topbi100<-ng2tbl[1:500,]
+wordcbi<-wordcloud(words = topbi100$ngram,freq = topuni100$freq,colors=pal,random.color = TRUE,random.order = FALSE,fixed.asp = TRUE)
+```  
+
+#### 7.4.1 Creating Trigram:
+
+```{r Trigram,eval=FALSE}
+# Tokenization after excluding any line that has less than 3 words
+ng3<-ngram(cleantxt[wordslength!=1 & wordslength !=2],n=3,sep = " ")
+# Getting pharse table and arranging descendingly by frequency 
+ng3tbl<-get.phrasetable(ng3)  %>% arrange(desc(freq)) %>% mutate (ngram_length = 3) %>% mutate(ngram = trim(ngrams)) %>% select(ngram,freq,ngram_length)
+# Creating preword and currentword columns (separated the steps as this was it takes less time and less processing power to create unlike the previous ngrams)
+prewordng3tbl<-word(ng3tbl$ngram,start = 1L,end = 2L)
+currentwordng3tbl<-word(ng3tbl$ngram,start = 3L,end = 3L)
+ng3tbl<-cbind(ng3tbl,preword=prewordng3tbl,currentword=currentwordng3tbl)
+# Removing NA rows from currentword column (to make sure no errorous rows in the table)
+ng3tbl<-ng3tbl[is.na(ng3tbl$currentword) != TRUE,]
+```  
+
+#### 7.4.2 Trigram graphs and table:
+
+```{r Trigram graphs, fig.height=8, fig.width=10,fig.cap="Figure 5:Histogram showing top 30 Trigram tokens", message=FALSE, warning=FALSE}
+# Trigram phrase table structure
+str(ng3tbl)
+# View the 30 most frequent tokens in Trigram tokens
+toptri<-ng3tbl[1:30,]
+kable(toptri,caption = "Table 4:Top 30 Trigram tokens") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  scroll_box(width = "100%", height = "300px")
+# Graph showing top 30 Trigram tokens
+toptrig<-ggplot(toptri,aes(reorder(ngram,-freq),freq))+geom_col()+ggtitle("Most frequent Trigram tokens")+xlab("Trigram tokens")+ylab("Frequency")+theme(plot.title = element_text(size = 20),axis.title = element_text(color = "black",face = "italic",size = 14,hjust = 0),axis.text.x = element_text(angle = 45, hjust = 1, size = 14),axis.text.y = element_text(size = 14))
+
+toptrig
+```  
+
+```{r Trigram word cloud, fig.height=8, fig.width=10,fig.cap="Figure 6:Wordcloud showing top 500 Trigram tokens", message=FALSE, warning=FALSE}
+# Creating a word cloud graph for top 100 Trigram tokens
+pal<-brewer.pal(8,"Dark2")
+toptri100<-ng3tbl[1:500,]
+wordctri<-wordcloud(words = toptri100$ngram,freq = toptri100$freq*2,colors=pal,random.color = TRUE,random.order = FALSE,rot.per = 0)
+```   
+
+### 8.Future steps:    
+1.Define suitable sample size to balance between prediction accuracy and computing time and power required.  
+2.Create functions to calculate Katz's back-off propabilities and save it as Markov matrix.  
+3.Create a shiny app that takes a preword/history and give 3 words suggestions.  
+
+
+
+
+
+
+
+
+
+
