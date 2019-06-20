@@ -32,21 +32,21 @@ For week 2 milestone report please [click here](http://rpubs.com/mah_elsheikh/49
   + [Calculating alpha][9.4.2 Calculating alpha:]
   + [Katz's probability with back-off function][9.4.3 Katz's probability with back-off function:]
   + [Calculating Maximum likelihood probability][9.4.4 Calculating Maximum likelihood probability:]
-  + [Calculating back-off propability from bigrams to unigrams][9.4.5 Calculating back-off propability from bigrams to unigrams:]
+  + [Calculating back-off probability from bigrams to unigrams][9.4.5 Calculating back-off probability from bigrams to unigrams:]
   + [Wrap up function to calculate Kat'z back-off probability][9.5 Wrap up function to calculate Kat'z back-off probability:]
   + [katz's probability wrap up function for bigrams and trigrams][9.5.1 katz's probability wrap up function for bigrams and trigrams:]
   + [katz's probability wrap up function for quadgrams][9.5.2 katz's probability wrap up function for quadgrams:]
 * [Creating a probability matrix from phrase table][10. Creating a probability matrix from phrase table:]
   + [Probability matrix function][10.1 Probability matrix function:]
   + [Creating probability matrix][10.2 Creating probability matrix:]
-* [Creating Wordsuggestion function][11. Creating Wordsuggestion function:]
+* [Creating Word suggestion function][11. Creating Word suggestion function:]
 * [Testing the accuracy of the algorithm][12. Testing the accuracy of the algorithm:]
 * [Conclusion][13. Conclusion:]
 
 
 ### 8.Sampling:  
 ### 8.1 Creating samples:  
-Took three samples of 0.5% of the cleaned text and one more sample for testing. These are to be used to create 3 matrices of prewords and current word keeping only unique prewords from the second matrix comparing to the prewords in the first matrix and so on for the thrid matrix as well.  
+Took three samples of 0.5% of the cleaned text and one more sample for testing. These are to be used to create 3 matrices of prewords and current word keeping only unique prewords from the second matrix comparing to the prewords in the first matrix and so on for the third matrix as well.  
 
 ```{r 'Creating samples'}
 set.seed(1234)
@@ -359,7 +359,7 @@ ngtbl0.5final2<-PML(ngtbl0.5final2)
 ngtbl0.5final3<-PML(ngtbl0.5final3)
 ```
 
-##### 9.4.5 Calculating back-off propability from bigrams to unigrams:  
+##### 9.4.5 Calculating back-off probability from bigrams to unigrams:  
 Seen bigrams:
 $$A(w_{i-1})= \{w:Count(w_{i-1},w)>0\}$$  
 Unseen bigrams:
@@ -384,7 +384,7 @@ bitounibackoff<-function(ngtbl,pre,current){
 
 #### 9.5 Wrap up function to calculate Kat'z back-off probability:  
 
-These are 2 wrap up functions for the above functions to calculate katz's probability with and without backoff. The first function is for bigrams and trigrams and the second for quadgrams.  
+These are 2 wrap up functions for the above functions to calculate katz's probability with and without back-off. The first function is for bigrams and trigrams and the second for quadgrams.  
 
 ##### 9.5.1 katz's probability wrap up function for bigrams and trigrams:  
 
@@ -476,7 +476,7 @@ return(probmatrix)
 ```  
 
 #### 10.2 Creating probability matrix:  
-Multiple matricies were created to increase accuracy as much as possible without affecting how fast the app will run. Also, Keeping in mind the 1 Gb limit of free shinyapp services.  
+Multiple matrices were created to increase accuracy as much as possible without affecting how fast the app will run. Also, Keeping in mind the 1 Gb limit of free shinyapp services.  
 
 ```{r 'Creating probability matrix'}
 ## Creating preunique and currentunique vectors:
@@ -506,7 +506,7 @@ probmatrix3<-probmatrixfun(ngtbl0.5final3,freq_of_freqs0.5final3)
 probmatrixquad<-probmatrixfun(ngtbl0.5final,freq_of_freqs0.5final)
 ```  
 
-#### 11. Creating Wordsuggestion function:  
+#### 11. Creating Word suggestion function:  
 This function takes a sentence and give back 3 words predictions which are the most probable 3 words to follow that sentence given.
   
 ```{r 'Word suggestion function'}
