@@ -93,7 +93,7 @@ server<-(function(input,output){
                 ## Defining preword from the given sentence if no word is given
                 if (pre == ""){pre =="1" }
                 ##  If the given sentence is longer than three words
-                if(wordcount(pre) > 3){
+                if(wordcount(pre) >= 3){
                         pre<-preword(pre,3)
                         ## Testing if the preword exist in the quadgram matrix
                         d<-pre %in% inwordsquad
@@ -108,7 +108,7 @@ server<-(function(input,output){
                         }
                 }
                 
-                if (exists("wordrange") == FALSE){
+                if (exists("wordrange") == FALSE & wordcount(pre)==2){
                         ## Creating logical vectors for each matrix if the 
                         ## preword found in each matrix or not  
                         x<-pre %in% inwordspre1
@@ -133,7 +133,7 @@ server<-(function(input,output){
                         }
                 }
                 
-                if (exists("wordrange") == FALSE){
+                if (exists("wordrange") == FALSE & wordcount(pre)==1){
                         ## Creating logical vectors for each matrix if 
                         ## the preword found in each matrix or not 
                         x2<-pre %in% inwordspre1

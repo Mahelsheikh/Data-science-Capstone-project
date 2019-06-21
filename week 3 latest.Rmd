@@ -491,7 +491,7 @@ currentunique0.52<-unique(ngtbl0.5final2[ngtbl0.5final2$ngram_length !=1,]$curre
 
 ## Creating preunique and currentunique vectors for the third phrase table:
 preunique0.53<-unique(ngtbl0.5final3[ngtbl0.5final3$ngram_length !=1,]$preword)
-preunique0.53<-preunique0.52[!(preunique0.53 %in% preunique0.5) & !(preunique0.53 %in% preunique0.52) ]
+preunique0.53<-preunique0.53[!(preunique0.53 %in% preunique0.5) & !(preunique0.53 %in% preunique0.52) ]
 currentunique0.53<-unique(ngtbl0.5final3[ngtbl0.5final3$ngram_length !=1,]$currentword)
 
 ## Creating preunique and currentunique vectors for the quadgram phrase table:
@@ -499,11 +499,12 @@ preuniquequad<-unique(ngtbl0.5final2[ngtbl0.5final2$ngram_length == 4,]$preword)
 currentuniquequad<-unique(ngtbl0.5final2[ngtbl0.5final2$ngram_length ==4,]$currentword)
 
 ## Creating probability matrices:
-probmatrix1<-probmatrixfun(ngtbl0.5final,freq_of_freqs0.5final)
-probmatrix2<-probmatrixfun(ngtbl0.5final2,freq_of_freqs0.5final2)
-probmatrix3<-probmatrixfun(ngtbl0.5final3,freq_of_freqs0.5final3)
+probmatrix1<-probmatrixfun(ngtbl0.5final,freq_of_freqs0.5final,preunique0.5,currentunique0.5)
+probmatrix2<-probmatrixfun(ngtbl0.5final2,freq_of_freqs0.5final2,preunique0.52,currentunique0.52)
+probmatrix3<-probmatrixfun(ngtbl0.5final3,freq_of_freqs0.5final3,preunique0.53,currentunique0.53)
+
 ## Creating probability matrix for quadgrams Using the katz's probability function katzcalcquad instead of katzcalc:
-probmatrixquad<-probmatrixfun(ngtbl0.5final,freq_of_freqs0.5final)
+probmatrixquad<-probmatrixfun(ngtbl0.5final,freq_of_freqs0.5final,preuniquequad,currentuniquequad)
 ```  
 
 #### 11. Creating Word suggestion function:  
@@ -525,7 +526,7 @@ wordsuggestion<-function(pre){
   ## Defining preword from the given sentence if no word is given
   if (pre == ""){pre =="1" }
   ##  If the given sentence is longer than three words
-  if(wordcount(pre) > 3){
+  if(wordcount(pre) >= 3){
     pre<-preword(pre,3)
   ## Testing if the preword exist in the quadgram matrix
   d<-pre %in% inwordsquad
@@ -538,7 +539,7 @@ wordsuggestion<-function(pre){
   }
   }
   
-  if (exists("wordrange") == FALSE){
+  if (exists("wordrange") == FALSE & wordcount(pre) == 2){
   ## Creating logical vectors for each matrix if the preword found in each matrix or not  
   x<-pre %in% inwordspre1
   y<-pre %in% inwordspre2
@@ -560,7 +561,7 @@ wordsuggestion<-function(pre){
   }
   }
   
-  if (exists("wordrange") == FALSE){
+  if (exists("wordrange") == FALSE & wordcount(pre) == 1){
   ## Creating logical vectors for each matrix if the preword found in each matrix or not 
   x2<-pre %in% inwordspre1
   y2<-pre %in% inwordspre2
